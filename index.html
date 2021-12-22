@@ -1,0 +1,273 @@
+<html>
+<meta charset="utf-8">
+<head>
+<title>QMK Sound Writer</title>
+<style>
+#output{
+	width: 100%;
+}
+.keys {
+  display: grid;
+  font-size: 2em;
+  height: 300px;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr 1fr;
+  grid-template-rows: 1fr;
+  gap: 0px 4px;
+  grid-auto-flow: row;
+  grid-template-areas:
+    ". . . . . . . . . . . . .";
+}
+.keys button{
+font-size: 1.25em;
+}
+.sharp {
+	background-color: #202020;
+	color: white;
+}
+.sharp:hover{
+	background-color: #404040;
+	color: white;
+}
+.notes, .scales{
+	height: 50px;
+	font-weight: bold;
+	font-size: 1em;
+	padding-left: 10px;
+	padding-right: 10px;
+}
+#scale {
+	width: 2em;
+}
+#length {
+	width: 20em;
+}
+#scale, #length {
+	font-size: 2em;
+}
+
+</style>
+</head>
+<body onload="init()">
+<textarea spellcheck=false rows="10" id="output" readonly placeholder="Start pushing buttons..."></textarea>
+<div class="controls">
+<button type="button" class="scales" onclick="changeScale(1)" title="Transpose Up">Transpose Up</button>
+<button type="button" class="scales" onclick="changeScale(0)" title="Transpose Down">Transpose Down</button><br>
+<button type="button" class="notes" onclick="setType(0)" title="128">Breve &#119132;</button>
+<button type="button" class="notes" onclick="setType(1)" title="64">Whole Note &#119133;</button>
+<button type="button" class="notes" onclick="setType(2)" title="32">Half Note &#119134;</button>
+<button type="button" class="notes" onclick="setType(3)" title="16">Quarter Note &#119135;</button>
+<button type="button" class="notes" onclick="setType(4)" title="8">Eighth Note &#119136;</button>
+<button type="button" class="notes" onclick="setType(5)" title="4">Sixteenth Note &#119137;</button>
+<button type="button" class="notes" onclick="setType(6)" title="2">Thirty-Second Note &#119138;</button><br>
+
+<button type="button" class="notes" onclick="setType(7)" title="128+64">Breve Dot &#119132; &#119133;</button>
+<button type="button" class="notes" onclick="setType(8)" title="64+32">Whole Dot Note &#119133; &#119134;</button>
+<button type="button" class="notes" onclick="setType(9)" title="32+16">Half Dot Note &#119134; &#119135;</button>
+<button type="button" class="notes" onclick="setType(10)" title="16+8">Quarter Dot Note &#119135; &#119136;</button>
+<button type="button" class="notes" onclick="setType(11)" title="8+4">Eighth Dot Note &#119136; &#119137;</button>
+<button type="button" class="notes" onclick="setType(12)" title="4+2">Sixteenth Dot Note &#119137; &#119138;</button>
+<button type="button" class="notes" onclick="setType(13)" title="2+1">Thirty-Second Dot Note &#119138; &#119139;</button><br>
+</div>
+<div class="controls interface">
+Current scale:
+<input type="text" id="scale" readonly placeholder="Code did not work!">
+Current note type:
+<input type="text" id="length" readonly placeholder="Code did not work!"><br>
+Type your song name here:
+<input type="text" id="name" placeholder="Song name" title="Note: ONLY UPPERCASE A TO Z AND UNDERSCORE CHARACTER ALLOWED. Illegal characters are replaced with underscores."> A-Z and _ accepted, please do not use all underscore names<br>
+<button type="button" class="function" onclick="clearAll()" title="Clear all typed notes">Clear Notes</button>
+<button type="button" class="function" onclick="format()" title="Format the string">I&apos;m Finished</button>
+<button type="button" onclick="oops()" title="Delete previous note">Backspace</button>
+</div>
+<div class="keys">
+<button type="button" id="c" onclick="typeNote(0)" title="Do">C5</button>
+<button type="button" id="cs" class="sharp" onclick="typeNote(1)" title="Do Sharp">C#5</button>
+<button type="button" id="d" onclick="typeNote(2)" title="Re">D5</button>
+<button type="button" id="ds" class="sharp" onclick="typeNote(3)" title="Re Sharp">D#5</button>
+<button type="button" id="e" onclick="typeNote(4)" title="Mi">E5</button>
+<button type="button" id="f" onclick="typeNote(5)" title="Fa">F5</button>
+<button type="button" id="fs" class="sharp" onclick="typeNote(6)" title="Fa Sharp">F#5</button>
+<button type="button" id="g" onclick="typeNote(7)" title="Sol">G5</button>
+<button type="button" id="gs" class="sharp" onclick="typeNote(8)" title="Sol Sharp">G#5</button>
+<button type="button" id="a" onclick="typeNote(9)" title="La">A5</button>
+<button type="button" id="as" class="sharp" onclick="typeNote(10)" title="La Sharp">A#5</button>
+<button type="button" id="b" onclick="typeNote(11)" title="Si">B5</button>
+<button type="button" onclick="typeNote(12)" title="Rest">Rest</button>
+</div>
+<br>
+Instructions:<br>
+<p>1. Click on the note length button</p>
+<p>2. Click on the note button (piano keys)</p>
+<p>3. The note is added to the list</p>
+<p>4. Adjust the scale accordingly</p>
+<p>5. Repeat until it's finished</p>
+<p>6. Press I'm Finished to format it</p>
+<p>7. Copy and paste the result to user_songs.h and place it in your keyboard's root folder</p>
+<p>8. Press Clear Notes to start over</p>
+
+<b>Notes</b>
+<p><b>Do not check "Prevent this page from showing more alerts" or similar else you will not be able to clear the notes</b></p>
+</body>
+<script>
+
+
+// Default values
+var noteScale = 5;
+var noteLength = 3;
+var noteName = "Quarter Note";
+var prefix = "Q_";
+
+// Initialize page
+function init() {
+    document.getElementById("scale").value = noteScale;
+    document.getElementById("length").value = noteName;
+    clearpg();
+}
+
+// Set note type
+function setType(index) {
+    var typeIndexElem = document.getElementById("length");
+    const noteNameArray = ["Breve", "Whole Note", "Half Note", "Quarter Note", "Eighth Note", "Sixteenth Note", "Thirty-Second Note", "Breve Dot", "Whole Note Dot", "Half Note Dot", "Quarter Note Dot", "Eighth Note Dot", "Sixteenth Note Dot", "Thirty-Second Note Dot"];
+    const noteTypeArray = ["B_", "W_", "H_", "Q_", "E_", "S_", "T_", "BD", "WD", "HD", "QD", "ED", "SD", "TD"];
+	prefix = noteTypeArray[index];
+	noteName = noteNameArray[index];
+	typeIndexElem.value = noteName;
+}
+
+// Input note, "prefix_NOTE(scaleNote),", example: "Q__NOTE(_C5),Q__NOTE(_E5),Q__NOTE(_G5),..."
+// Get the current value from the textbox and append new note to it
+function typeNote(index) {
+	var output = document.getElementById("output").value;
+    const noteArray = ["_C", "_CS", "_D", "_DS", "_E", "_F", "_FS", "_G", "_GS", "_A", "_AS", "_B", "_REST"];
+    const head = "_NOTE(";
+    const tail = "),";
+	if (index != 12){
+		output = output + prefix + head + noteArray[index] + noteScale + tail;
+	}
+	else {
+		output = output + prefix + head + noteArray[index] + tail;
+	}
+	document.getElementById("output").value = output;
+}
+
+function changeScale(dir) {
+
+    if (dir === 0 && noteScale > 0) {
+        noteScale--;
+        document.getElementById("scale").value = noteScale;
+		updateButtons();
+    }
+    if (dir === 1 && noteScale < 8) {
+        noteScale++;
+        document.getElementById("scale").value = noteScale;
+		updateButtons();
+    }
+	
+}
+function updateButtons(){
+	// UGLY!!!
+	console.log("Attempted to change the button text");
+	document.getElementById("c").textContent = "C" + noteScale;
+	document.getElementById("cs").textContent = "C#" + noteScale;
+	document.getElementById("d").textContent = "D" + noteScale;
+	document.getElementById("ds").textContent = "D#" + noteScale;
+	document.getElementById("e").textContent = "E" + noteScale;
+	document.getElementById("f").textContent = "F" + noteScale;
+	document.getElementById("fs").textContent = "F#" + noteScale;
+	document.getElementById("g").textContent = "G" + noteScale;
+	document.getElementById("gs").textContent = "G#" + noteScale;
+	document.getElementById("a").textContent = "A" + noteScale;
+	document.getElementById("as").textContent = "A#" + noteScale;
+	document.getElementById("b").textContent = "B" + noteScale;
+}
+function oops(){
+// Split the string by ",", delete the last element and join it
+	var prev = document.getElementById("output").value;
+	var next = prev.split(",");
+	// Detects if the string is already formatted, and applies correct format for them
+	if (next[0].charAt(0) != "#"){
+		// If the string wasn't formatted
+		// Yeet the last 2 elements, since it also contains a comma
+		var cmp = next.pop();
+		cmp = next.pop();
+		next.join(",");
+		document.getElementById("output").value = next + ",";
+	}
+	else {
+		// If the string was already formatted
+		var cmp = next.pop();
+		next.join(",");
+		document.getElementById("output").value = next;
+	}
+}
+
+function clearAll() {
+    if (confirm("Do you really want to clear the notes?") == true) {
+        document.getElementById("name").value = "";
+        document.getElementById("output").value = "";
+    } else {}
+}
+
+function clearpg() {
+// Ensures a clean reset just in case the browser stores what was there before
+    document.getElementById("output").value = "";
+}
+
+function format() {
+    var name = document.getElementById("name").value.trim().replace(/[^A-Za-z_]/g, "_").toUpperCase();
+    var nameField = document.getElementById("name");
+    nameField.value = name;
+
+    // Check for empty field
+    if (isEmpty(name)) {
+        alert("Name cannot be blank!");
+    }
+    // Check if the name starts with _
+    else if (name.charAt(0) == "_") {
+        alert("Invalid name! Please do not use names starting with underscore.");
+    }
+
+    // Check if the name is shorter than 4 letters to prevent possible conflict
+    else if (name.length < 4) {
+        alert("Name is too short!");
+    }
+
+    // Check if the name is longer than 16 letters
+    else if (name.length > 17) {
+        alert("Name is too long! It has been truncated.");
+        name = name.substring(0, 17);
+        nameField.value = name;
+    }
+	
+	// Check if the string is already formatted
+    else if (document.getElementById("output").value.charAt(0) == "#") {
+        alert("It is already formatted!");
+    }
+
+    // Looks good, let's try to format it
+    else {
+        var output = document.getElementById("output").value;
+        output = "#define " + name + " " + output + "T__NOTE(_REST)";
+        document.getElementById("output").value = output;
+    }
+}
+
+function isEmpty(str) {
+    return !str.trim().length;
+}
+
+window.addEventListener("beforeunload", function (e) {
+    if(!e) e = window.event;
+    //e.cancelBubble is supported by IE - this will kill the bubbling process.
+    e.cancelBubble = true;
+    e.returnValue = 'You sure you want to leave? Any change you have made will not be saved!'; //This is displayed on the dialog
+
+    //e.stopPropagation works in Firefox.
+    if (e.stopPropagation) {
+        e.stopPropagation();
+        e.preventDefault();
+    }
+	return e.returnValue;
+});
+</script>
+</html>
